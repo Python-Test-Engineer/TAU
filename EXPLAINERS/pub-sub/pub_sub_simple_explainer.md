@@ -3,15 +3,15 @@
 A 99-line publish/subscribe demo where every step prints itself. Use this page
 alongside `pub_sub_simple.py`; nothing here is needed to run the file.
 
-Source: `C:\Users\mrcra\Desktop\TAU\pub_sub_simple.py`
-Plain twin with colour panels and a grey system trace: `pub_sub.py`
+Source: `EXPLAINERS/pub-sub/pub_sub_simple.py`
+Plain twin with colour panels and a grey system trace: `EXPLAINERS/pub-sub/pub_sub.py`
 
 ---
 
 ## Run it
 
     cd C:\Users\mrcra\Desktop\TAU
-    uv run python pub_sub_simple.py
+    uv run python EXPLAINERS/pub-sub/pub_sub_simple.py
 
 No dependencies beyond the standard library (`queue`). Output is ten numbered
 steps; the whole run takes milliseconds.

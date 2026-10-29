@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>OpenRouter Tool Calling in Browser</title>
+   <script src="config.js"></script>
+   <link rel="stylesheet" href="anthropic-ui.css">
+</head>
+
+<body class="page-tool-calling">
+   <div class="container">
+      <h1>🛠️ OpenRouter Tool Calling Demo</h1>
+      <h2>Demonstrates tool calling with get_weather() and get_sum() functions</h2>
+
+      <div class="input-group">
+         <label for="apiKey">OpenRouter API Key:</label>
+         <input type="text" id="apiKey" placeholder="Enter your OpenRouter API key (sk-or-...)">
+      </div>
+
+      <div class="input-group">
+         <label for="prompt">Your Prompt:</label>
+         <input type="text" id="prompt" placeholder="e.g., What's the weather? or What is 5 + 3?"
+            value="What's the weather in England?" autocomplete="off">
+      </div>
+
+      <button id="sendBtn">Send Request</button>
+
+      <div id="result"></div>
+   </div>
+
+   <script>
+      // 🚀 ======================= DEMO CONSOLE LOGGING =======================
+      console.log('%c🚀 03 — OpenRouter Tool Calling (functions the AI can request)', 'font-size:15px;font-weight:bold;color:#0b7a5c');
+      console.log('📄 Page loaded. This demo shows the AI CALLING YOUR CODE, not just chatting.');
+      console.log('🧩 Flow: you describe tools → AI decides to call one → YOUR code runs it → result goes back → AI answers.');
+      console.log('🔄 It loops until the AI stops asking for tools (that is the "agent" loop).');
+
+      // Pre-fill the API key from config.js (OpenRouter) so the demo works out of the box.
+      if (typeof OPENROUTER_API_KEY !== 'undefined' && OPENROUTER_API_KEY) {
+         document.getElementById('apiKey').value = OPENROUTER_API_KEY;
+         console.log('🔑 API key auto-filled from config.js (OpenRouter).');
+      } else {
+         console.warn('⚠️ No OPENROUTER_API_KEY found in config.js — type one into the field.');
+      }
+
+      // Tool implementation
+      function get_weather(city) {
+         const cities = {
+            'england': { name: 'Brighton, UK', base: 16 },
+            'london': { name: 'London, UK', base: 17 },
+            'paris': { name: 'Paris, FR', base: 20 },
+            'new york': { name: 'New York, US', base: 24 },
+            'tokyo': { name: 'Tokyo, JP', base: 26 }
+         };
+         const key = (city || 'england').toLowerCase();
+         const place = cities[key] || cities['england'];
+         const hour = new Date().getHours();
+         const feels = place.base + Math.round((hour % 6) - 2);
+         const conditions = [
+            'clear skies', 'partly cloudy', 'a light breeze', 'sunny intervals',
+            'a few passing clouds', 'mild and bright'
+         ];
+         const condition = conditions[hour % conditions.length];
+         console.log(`🛠️ [TOOL EXECUTED] get_weather(${JSON.stringify(city)}) → looked up live conditions for ${place.name}.`);
+         return `${place.name}: ${feels}°C, ${condition}. Wind ${8 + (hour % 9)} km/h, humidity ${55 + (hour % 25)}%.`;
+      }
+      // Tool implementation
+      function get_sum(a, b) {
+         console.log(`🛠️ [TOOL EXECUTED] get_sum(${a}, ${b}) → ${a} + ${b} = ${a + b}`);
+         return `The sum of ${a} and ${b} is ${a + b}.`;
+      }
+
+      // Process tool calls
+      function processToolCall(toolName, toolInput) {
+         console.log('🎯 processToolCall() is not magic — it is just a switch matching the name the AI asked for.');
+         console.group('🚦 Routing tool call');
+         console.log('Requested tool:', toolName);
+         console.log('Arguments:', toolInput);
+         if (toolName === 'get_weather') {
+            const r = get_weather(toolInput.city);
+            console.log('↩️ Tool returned:', r);
+            console.groupEnd();
+            return r;
+         } else if (toolName === 'get_sum') {
+            const r = get_sum(toolInput.a, toolInput.b);
+            console.log('↩️ Tool returned:', r);
+            console.groupEnd();
+            return r;
+         }
+         console.warn('❓ Unknown tool:', toolName);
+         console.groupEnd();
+         return "Unknown tool";
+      }
+
+      // Display message in result div
+            function displayMessage(type, content) {
+               const resultDiv = document.getElementById('result');
+               const msgDiv = document.createElement('div');
+               msgDiv.className = `message ${type}`;
+               msgDiv.innerHTML = content;
+               resultDiv.appendChild(msgDiv);
+               resultDiv.scrollTop = resultDiv.scrollHeight;
+            }
+
+            // ─── Audience narration (visible kicker + detail line, mirrors the console) ───
+            function explain(badge, summary, detailHtml) {
+               const resultDiv = document.getElementById('result');
+               const box = document.createElement('div');
+               box.className = 'message explain';
+               box.innerHTML =
+                  `<span class="badge">${badge}</span><span class="summary">${summary}</span>` +
+                  (detailHtml ? `<div class="detail">${detailHtml}</div>` : '');
+               resultDiv.appendChild(box);
+               resultDiv.scrollTop = resultDiv.scrollHeight;
+            }
+
+            // Collapsible raw JSON block so the audience can inspect the exact wires.
+            function showRaw(label, obj) {
+               const resultDiv = document.getElementById('result');
+               const d = document.createElement('details');
+               d.className = 'raw';
+               d.innerHTML =
+                  `<summary>▸ ${label} — click to expand</summary><pre></pre>`;
+               d.querySelector('pre').textContent = JSON.stringify(obj, null, 2);
+               resultDiv.appendChild(d);
+               resultDiv.scrollTop = resultDiv.scrollHeight;
+            }
+
+      // Main function to handle tool calling loop
+      async function handleToolCalling(apiKey, userPrompt) {
+         const resultDiv = document.getElementById('result');
+         resultDiv.innerHTML = '';
+
+         const messages = [
+                     {
+                        role: 'user',
+                        content: userPrompt
+                     }
+                  ];
+                  console.group('📤 Starting a fresh conversation');
+                  console.log('The tool loop begins with just the user message:', messages);
+                  console.log('🔄 As tools run, we append the AI\'s tool request AND the tool result back into `messages`.');
+                  console.groupEnd();
+                  explain('STEP 1/4', 'We start with ONLY the user message — a plain chat.',
+                     'The conversation is a growing array of messages. Right now it simply holds your prompt. Later we will splice the model\'s tool request and the tool result back into this same array — that is what lets the next API call carry context.');
+         // TOOLS
+         // We must define tools in a certain way as the model is trained to expect tools in this format.
+
+         // Libraries make this a lot easier - this is the low levedl implementation.
+         const tools = [
+            {
+               type: 'function',
+               function: {
+                  name: 'get_weather',
+                  description: 'Get the current weather conditions for a city (e.g. england, london, paris)',
+                  parameters: {
+                     type: 'object',
+                     properties: {
+                        city: {
+                           type: 'string',
+                           description: 'The city to get weather for (e.g. england, london, paris)'
+                        }
+                     },
+                     required: []
+                  }
+               }
+            },
+            {
+               type: 'function',
+               function: {
+                  name: 'get_sum',
+                  description: 'Calculate the sum of two numbers',
+                  parameters: {
+                     type: 'object',
+                     properties: {
+                        a: {
+                           type: 'number',
+                           description: 'First number'
+                        },
+                        b: {
+                           type: 'number',
+                           description: 'Second number'
+                        }
+                     },
+                     required: ['a', 'b']
+                  }
+               }
+            }
+         ];
+         console.log('%c🧰 Tool catalogue sent to the model (its available "hands"):', 'font-weight:bold;color:#0b7a5c', tools.map(t => t.function.name));
+         console.log('👉 The AI only sees the NAMES + DESCRIPTIONS + parameter schema. It never runs them itself.');
+         showRaw('What we send alongside every message — the TOOLS definition', { tools: tools, tool_choice: 'auto' });
+         explain('STEP 2/4', 'We attach TWO "tools" — as JSON schemas, not code.',
+            'Each tool declares a <b>name</b>, a plain-English <b>description</b>, and the <b>parameters</b> it accepts. The model never sees our JavaScript functions — it only sees these JSON contracts. When it decides it needs real data (weather, a sum), it "calls" one of these names and the <i>model just asks</i>; <b>our</b> code actually runs it.');
+
+         let continueLoop = true;
+         let iterations = 0;
+         const maxIterations = 10;
+         console.log('🔁 Entering the agent loop (max', maxIterations, 'iterations to avoid infinite loops).');
+         explain('STEP 3/4', 'Now the AGENT LOOP runs. This is the heart of it.',
+            'One API call rarely finishes the job. The loop repeats: send the conversation + tools → the model either answers OR asks for a tool → we execute, feed the result back → repeat. <b>This back-and-forth until it stops asking is what makes it an "agent"</b>, not just a chat. (Capped at ' + maxIterations + ' turns so it can never loop forever.)');
+
+         while (continueLoop && iterations < maxIterations) {
+            iterations++;
+            console.log(`%c─── 🔁 Loop iteration ${iterations} ───`, 'color:#0b7a5c;font-weight:bold');
+            displayMessage('loading', '⏳ Calling OpenRouter API...');
+            // ******************** AI BIT ********************
+            try {
+               console.log('🌐 POSTing conversation + tools to', OPENROUTER_API_URL);
+               const t0 = performance.now();
+               const requestBody = {
+                  model: OPENROUTER_MODEL,
+                  messages: messages,
+                  tools: tools,
+                  tool_choice: 'auto'
+               };
+               const response = await fetch(OPENROUTER_API_URL, {
+                  method: 'POST',
+                  headers: {
+                     'Content-Type': 'application/json',
+                     'Authorization': `Bearer ${apiKey}`,
+                     ...OPENROUTER_HEADERS
+                  },
+                  body: JSON.stringify(requestBody)
+               });
+               console.log('📡 Response in', Math.round(performance.now() - t0) + 'ms | status', response.status, response.ok ? '✅' : '⚠️');
+               console.log('ℹ️ tool_choice: "auto" means the model decides whether to call a tool or just answer.');
+               explain(`Turn ${iterations} — sending #${messages.length} message(s) to the model`,
+                  `The whole conversation so far goes back. <code>tool_choice:"auto"</code> tells the model it MAY use a tool but doesn't have to.`,
+                  `Send the conversation + your function schemas. The model reads everything and — critically — decides the <i>next</i> action itself.`);
+               showRaw(`Turn ${iterations} — REQUEST payload`, requestBody);
+
+               const data = await response.json();
+               console.log('Raw API response:', data);
+               // ******************** AI BIT ********************
+               if (data.error) {
+                  displayMessage('error', `❌ Error: ${data.error.message}`);
+                  continueLoop = false;
+                  console.log('API Error:', data.error);
+                  break;
+               }
+
+               const choice = data.choices[0];
+               const assistantMessage = choice.message;
+               console.log('finish_reason:', choice.finish_reason, '| tool_calls:', assistantMessage.tool_calls ? assistantMessage.tool_calls.map(tc => tc.function.name) : 'none');
+               showRaw(`Turn ${iterations} — RESPONSE payload`, data);
+
+               // Add assistant message to conversation
+               messages.push(assistantMessage);
+               console.log('➕ Appended the assistant message to the running conversation.');
+
+               // Display assistant's response if it has content
+               if (assistantMessage.content) {
+                  const isFinal = !assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0;
+                  if (isFinal) {
+                     // 🏆 This is the FINAL answer — show it big and prominent.
+                     console.log('💬 FINAL answer from the model:', assistantMessage.content);
+                     displayMessage('final-answer',
+                        `<span class="final-tag">🏆 FINAL ANSWER</span><div class="final-body">${assistantMessage.content}</div>`
+                     );
+                  } else {
+                     displayMessage('assistant-message', `💬 Assistant: ${assistantMessage.content}`);
+                     console.log('💬 The assistant also produced text:', assistantMessage.content);
+                  }
+               }
+
+               // Check if there are tool calls
+               if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+                  console.log('🛠️ The model asked for', assistantMessage.tool_calls.length, 'tool call(s).');
+                  explain('STEP 4/4', '⚠️ The model did NOT answer — it ASKED for a tool instead.',
+                     `Look at the response: <code>finish_reason:"${choice.finish_reason}"</code> and a <code>tool_calls</code> array. The text field is empty — there is no final answer yet. The model has just <i>requested</i> <b>${assistantMessage.tool_calls.length}</b> function call(s) it wants performed, along with the exact arguments. <b>Open the RESPONSE payload above and point to the <code>tool_calls</code> block.</b> Now WE run it (our JS switch in <code>processToolCall</code>), then hand the real result back.`);
+                  for (const toolCall of assistantMessage.tool_calls) {
+                     const toolName = toolCall.function.name;
+                     const toolInput = JSON.parse(toolCall.function.arguments);
+                     console.log('🔧 Tool Call:', toolName, toolInput);
+                     console.log('🆔 tool_call_id:', toolCall.id, '(we must echo this back with the result)');
+                     // Display tool call
+                     displayMessage('tool-call',
+                        `🔧 <span class="tool-name">${toolName}</span><div class="tool-args">Args: ${JSON.stringify(toolInput)}</div>`
+                     );
+
+                     // ══ THE CRUX ══ The model asked  →  OUR code runs. ══
+                     console.log('⚙️ Executing OUR function:', toolName, '← the model only chose the name.');
+                     const toolResult = processToolCall(toolName, toolInput);
+                     console.log('✅ Tool Result:', toolResult);
+                     // Display tool result
+                     displayMessage('tool-result',
+                        `✅ <span class="result-label">${toolName} result:</span> ${toolResult}`
+                     );
+
+                     // Add tool result to messages
+                     messages.push({
+                        role: 'tool',
+                        tool_use_id: toolCall.id,
+                        tool_call_id: toolCall.id,
+                        content: toolResult
+                     });
+                     showRaw(`Turn ${iterations} — feeding RESULT of ${toolName} back as a "tool" message`, {
+                        role: 'tool',
+                        tool_call_id: toolCall.id,
+                        content: toolResult
+                     });
+                     console.log('➕ Appended the tool result as a "tool" message. The loop will now call the API again so the model can USE it.');
+                     explain('↩️ handing back', `Result of <b>${toolName}</b> (<code>${toolResult}</code>) is appended as a <code>role:"tool"</code> message.`,
+                        'The <code>tool_call_id</code> ties this result to the request above — the model needs that pairing. We echo back the ACTUAL output, not a promise. The loop now goes back to STEP 3 so the model can use this answer.');
+                  }
+               } else {
+                  // No more tool calls, exit loop
+                  console.log('❌ No tool calls, finishing.');
+                  console.log('🎉 The model gave a final answer without needing any tool — loop ends.');
+                  continueLoop = false;
+                  explain('🏁 Loop ends', 'The model answered WITHOUT requesting a tool — nothing left to run.',
+                     `The final reply above comes straight from the model. Everything the conversation needed, it had already received through earlier tool results. That is the whole agentic pattern: <b>ask → execute → feed back → until the answer is final</b>.`);
+               }
+
+               if (choice.finish_reason === 'end_turn' || choice.finish_reason === 'stop') {
+                  console.log('🔚 Finish reason:', choice.finish_reason);
+                  continueLoop = false;
+               }
+
+            } catch (error) {
+               console.error('💥 Error inside the loop:', error);
+               displayMessage('error', `❌ Error: ${error.message}`);
+               continueLoop = false;
+            }
+         }
+         console.log('%c🏁 Tool loop finished after', 'font-weight:bold;color:#0b7a5c', iterations, 'iteration(s).');
+      }
+
+      // Event listener
+      document.getElementById('sendBtn').addEventListener('click', async () => {
+         console.log('%c👆 Send button clicked', 'color:#0b7a5c;font-weight:bold');
+         console.log('⏳ Awaiting window.openRouterReady (loads key + model from OPENROUTER.txt).');
+         await window.openRouterReady; // key + model come from OPENROUTER.txt
+         console.log('✅ openRouterReady resolved.');
+         // Use the key typed into the field, falling back to the key from OPENROUTER.txt.
+         const apiKey = document.getElementById('apiKey').value || OPENROUTER_API_KEY;
+         const prompt = document.getElementById('prompt').value;
+
+         if (!apiKey) {
+            console.warn('🛑 No API key — aborting.');
+            alert('Please enter your OpenRouter API key');
+            return;
+         }
+
+         if (!prompt) {
+            console.warn('🛑 Empty prompt — aborting.');
+            alert('Please enter a prompt');
+            return;
+         }
+
+         document.getElementById('sendBtn').disabled = true;
+         console.log('🔒 Disabled the Send button while the agent runs.');
+         await handleToolCalling(apiKey, prompt);
+         document.getElementById('sendBtn').disabled = false;
+         console.log('🔓 Re-enabled the Send button.');
+      });
+
+      // Allow Enter key to submit
+      document.getElementById('prompt').addEventListener('keypress', (e) => {
+         if (e.key === 'Enter') {
+            document.getElementById('sendBtn').click();
+         }
+      });
+   </script>
+</body>
+
+</html>

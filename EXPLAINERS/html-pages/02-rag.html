@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>OpenRouter API in Browser</title>
+   <script src="config.js"></script>
+   <link rel="stylesheet" href="anthropic-ui.css">
+</head>
+
+<body class="page-rag">
+   <header class="page-heading">
+      <p class="eyebrow">02 · Retrieval augmented generation</p>
+      <h1>OpenRouter API + RAG</h1>
+      <p class="lede">Add retrieved facts to the prompt so the model can answer with fresh context.</p>
+   </header>
+
+   <main class="chat-card" aria-label="Retrieval augmented generation demo">
+      <section class="setup" aria-label="Request setup">
+         <label for="apiKey">OpenRouter API key <span>masked on screen</span></label>
+         <input type="text" id="apiKey" placeholder="Enter your OpenRouter API key" value="" autocomplete="off"
+            data-form-type="other">
+         <label for="prompt">Question</label>
+         <input type="text" id="prompt" placeholder="Enter your prompt" value="When was the first meetup held?"
+            autocomplete="off">
+         <button id="sendBtn" type="button">Send Request</button>
+      </section>
+      <div id="result" aria-live="polite" aria-label="Request and response details"></div>
+   </main>
+
+   <script>
+      // 🚀 ======================= DEMO CONSOLE LOGGING =======================
+      console.log('%c🚀 01.2 — OpenRouter + RAG (Retrieval Augmented Generation)', 'font-size:15px;font-weight:bold;color:#0b7a5c');
+      console.log('📄 Page loaded. RAG = we inject EXTRA FACTS the model was never trained on.');
+      console.log('🧩 The trick: bake the facts into the SYSTEM prompt alongside the user question.');
+      console.log('🔎 That\'s why the answer is correct — check the logs and see where the facts come from.');
+
+      // Pre-fill the API key from config.js (OpenRouter) so the demo works out of the box.
+      if (typeof OPENROUTER_API_KEY !== 'undefined' && OPENROUTER_API_KEY) {
+         document.getElementById('apiKey').value = OPENROUTER_API_KEY;
+         console.log('🔑 API key auto-filled from config.js (OpenRouter).');
+      } else {
+               console.warn('⚠️ No OPENROUTER_API_KEY found in config.js — type one into the input field.');
+            }
+
+            // ─── Audience narration + raw-payload helpers (shared by all demos) ───
+            function explain(badge, summary, detailHtml) {
+               const r = document.getElementById('result');
+               const box = document.createElement('div');
+               box.className = 'explain';
+               box.innerHTML = '<span class="badge">' + badge + '</span><span class="summary">' + summary + '</span>' + (detailHtml ? '<div class="detail">' + detailHtml + '</div>' : '');
+               r.appendChild(box);
+            }
+            function showRaw(label, obj) {
+               const r = document.getElementById('result');
+               const d = document.createElement('details');
+               d.className = 'raw';
+               d.innerHTML = '<summary>▸ ' + label + ' — click to expand</summary><pre></pre>';
+               d.querySelector('pre').textContent = JSON.stringify(obj, null, 2);
+               r.appendChild(d);
+            }
+
+      document.getElementById('sendBtn').addEventListener('click', async (event) => {
+               event.preventDefault(); // never let this trigger a page navigation/reload
+               console.log('%c👆 Send button clicked', 'color:#0b7a5c;font-weight:bold');
+         console.log('⏳ Awaiting window.openRouterReady (loads key + model from OPENROUTER.txt).');
+         await window.openRouterReady; // key + model come from OPENROUTER.txt
+         console.log('✅ openRouterReady resolved.');
+         // Use the key typed into the field, falling back to the key from OPENROUTER.txt.
+         const apiKey = document.getElementById('apiKey').value || OPENROUTER_API_KEY;
+         const prompt = document.getElementById('prompt').value;
+         const resultDiv = document.getElementById('result');
+
+         console.log('📝 User question:', JSON.stringify(prompt));
+         console.log('🔑 Using API key:', apiKey ? apiKey.slice(0, 8) + '…(hidden)' : '(none)');
+
+
+         if (!apiKey) {
+            console.warn('🛑 No API key — aborting.');
+            resultDiv.innerHTML = '<p class="error">Please enter your API key</p>';
+            return;
+         }
+
+         resultDiv.innerHTML = '<p>Loading...</p>';
+         console.log('⌛ Showing "Loading..." while the request is in flight.');
+
+         system_prompt = `
+         You are a helpful assistant. You always answer in a concise manner. 
+         You never refuse to answer but do not make things up - just say 'I don't know'. You always try to help the user as much as possible. 
+         Convert markdown to HTML when needed so that ouput is properly formatted.Ensure there is a new line after each sentence.
+         Include relevant context from the information provided below when answering the user's question.
+    
+         `;
+         console.group('🧭 Started the system prompt (rules for the assistant)');
+         console.log(system_prompt);
+         console.groupEnd();
+
+         // We can add additional context for RAG (Retrieval Augmented Generation) here which was not in trained model. It can also be dynamic content retrieved from a database or API - we will see that later.
+         console.group('📚 RAG CONTEXT — facts the model was never trained on');
+         console.log('👉 This is the heart of RAG: stuffing fresh/private facts into the prompt.');
+         console.log('👉 Normally this block would come from a database, API or vector search.');
+         RAG = `
+                     Brighton Data Intelligence Meet Up is taking place on October 29th.
+                     The venue is the Platform9.
+                     The event starts at 6:00 PM and finishes at 8:00 PM.
+                     The Speaker is Craig West and the topic is 'AI Agents and Evals for all languages'
+                     Brighton Web Development Meet Up is part of Silicon Brighton.
+                     The current organiser is Datacove and it has been running since <strong>1865 (3rd October 1865)</strong> the first meetup being organised by Datacove.
+                   `
+                  console.log(RAG);
+                  console.groupEnd();
+                  explain('STEP 1/4', 'We grab FACTS the model was never trained on — the RAG context.',
+                     'Normal LLMs know nothing about your meetup (its date, venue, speaker). So we fetch those details ourselves — from a database, an API, a vector search, or here, a hard-coded list — and prepare to inject them. This block is the "retrieved" part of Retrieval-Augmented Generation.');
+                  showRaw('The RAG "context" — facts to inject', { rag_context: RAG });
+
+                  system_prompt += RAG;
+                  console.log('%c🔗 Merged the user prompt + RAG facts into one system prompt (this is the whole RAG recipe).', 'font-weight:bold;color:#0b7a5c');
+                  console.log(system_prompt);
+                  explain('STEP 2/4', 'Bake those facts straight into the SYSTEM prompt.',
+                     'The whole RAG trick is just string concatenation: <code>system_prompt + RAG_context</code>. The model now "knows" your meetup details because they are literally in its instructions. No vectors, no fine-tuning — <b>context injection at prompt time</b>.');
+                  showRaw('The merged system prompt (base rules + RAG facts)', { role: 'system', content: system_prompt });
+
+         // ******************** AI BIT ********************
+
+
+         try {
+            console.group('📤 Sending request');
+            console.log('Model:', OPENROUTER_MODEL);
+            console.log('Messages:', [
+               { role: 'system', content: '(system prompt + RAG context — see log above)' },
+               { role: 'user', content: prompt }
+            ]);
+            console.log('⚙️ max_tokens: 1024');
+            console.groupEnd();
+
+            const t0 = performance.now();
+                        const requestBody = {
+                           model: OPENROUTER_MODEL,
+                           messages: [{ role: 'system', content: system_prompt }, { role: 'user', content: prompt }],
+                           max_tokens: 1024
+                        };
+                        const response = await fetch(OPENROUTER_API_URL, {
+                           method: 'POST',
+                           headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${apiKey}`,
+                              ...OPENROUTER_HEADERS
+                           },
+                           body: JSON.stringify(requestBody)
+                        });
+                        console.log('📡 Response received in', Math.round(performance.now() - t0) + 'ms');
+                        console.log('🔢 HTTP status:', response.status, response.statusText, response.ok ? '✅' : '⚠️');
+                        explain('STEP 3/4', 'Send it — the same one-shot POST as demo 01.1.',
+                           `Now the <code>system</code> message already contains the RAG facts, the <code>user</code> message is the question. The model answers using the injected context instead of guessing. Same API call — the only difference from 01.1 is the extra facts tucked into the system prompt.`);
+                        showRaw('The full REQUEST body (system now carries the RAG facts)', requestBody);
+
+                        const data = await response.json();
+                        console.log('API Response:', data);
+                        showRaw('The RESPONSE body we get back', data);
+                        let output = "";
+
+                        if (data.error) {
+                           console.error('❌ OpenRouter error:', data.error.message);
+                           // OpenRouter error responses (bad key, bad model, rate limit...) have NO `choices`.
+                           resultDiv.innerHTML = `<p class="error">Error: ${data.error.message}</p>`;
+                        } else if (!data.choices || !data.choices[0]) {
+                           console.warn('⚠️ No "choices" in the response — dump the raw payload above.');
+                           resultDiv.innerHTML = `<p class="error">Unexpected response from OpenRouter (no choices). Check the console.</p>`;
+                        } else {
+                           const msg = data.choices[0].message.content;
+                           console.group('🔎 Extracting the answer');
+                           console.log('Path: data.choices[0].message.content');
+                           console.log('🔚 Finish reason:', data.choices[0].finish_reason);
+                           if (data.usage) console.log('🧮 Token usage:', data.usage);
+                           console.log('💬 Answer:', msg);
+                           console.groupEnd();
+                           explain('STEP 4/4', 'The answer now reflects facts the model was never trained on.',
+                              `Let it answer the meetup question — it gets the date, venue and speaker right <i>because we injected them</i>. This is RAG in a nutshell: retrieve the right facts, inject them into the prompt, and the model sounds like it "knows". <code>finish_reason</code> shows why it stopped.`);
+                           resultDiv.innerHTML = resultDiv.innerHTML + `<p><strong>Response:</strong></p><p>${output + '<br>' + msg}</p>`;
+                        }
+         } catch (error) {
+            console.error('💥 Network/parse error:', error);
+            resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+         }
+      });
+   </script>
+</body>
+
+</html>

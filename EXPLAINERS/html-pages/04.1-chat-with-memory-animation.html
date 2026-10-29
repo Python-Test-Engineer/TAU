@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Chat with Memory — OpenRouter</title>
+   <script src="config.js"></script>
+   <link rel="stylesheet" href="anthropic-ui.css">
+</head>
+
+<body class="page-memory-animation">
+   <header class="page-heading">
+      <p class="eyebrow">04 · Stateful conversations</p>
+      <h1>Chat with memory</h1>
+      <p class="lede">The model is stateless. The browser creates the feeling of memory by resending the conversation
+         and keeping a copy between visits.</p>
+   </header>
+
+   <section id="memoryDemo" aria-label="Animation showing how chat memory works">
+      <div id="caption" aria-live="polite"><span id="capStep">Ready</span><span id="capText">Press Play to trace a
+            message through the app, model, and browser storage.</span></div>
+      <svg id="memoryStage" viewBox="0 0 1400 570" role="img" aria-labelledby="stageTitle stageDescription"
+         preserveAspectRatio="xMidYMid meet">
+         <title id="stageTitle">How a chat remembers</title>
+         <desc id="stageDescription">The browser sends the complete conversation to a stateless model, receives a reply,
+            saves the updated history locally, and can restore it after refresh.</desc>
+         <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4"
+               orient="auto-start-reverse">
+               <path d="M0 0 L10 5 L0 10 z" fill="#4d4c48" />
+            </marker>
+         </defs>
+         <rect class="panel" x="55" y="65" width="590" height="440" rx="28" />
+         <text class="panel-title" x="100" y="119">Your app</text>
+         <text class="panel-sub" x="100" y="151">Conversation lives in the browser</text>
+         <rect class="bubble-user" x="100" y="180" width="430" height="58" rx="16" />
+         <text class="bubble-copy" x="122" y="216">User: “What was the place I asked about?”</text>
+         <rect class="bubble-assistant" x="100" y="250" width="430" height="58" rx="16" />
+         <text class="bubble-copy" x="122" y="286">Assistant: “You asked about Brighton.”</text>
+         <text class="tiny-label" x="100" y="340">Saved copy</text>
+         <rect class="storage" x="100" y="356" width="430" height="104" rx="16" />
+         <text class="storage-title" x="124" y="391">▤ localStorage · chatHistory</text>
+         <text class="storage-copy" x="124" y="425">[system, user, assistant, …]</text>
+         <rect class="panel" x="925" y="125" width="375" height="270" rx="28" />
+         <circle class="model-core" cx="1112" cy="208" r="43" />
+         <path d="M1093 208h38m-19-19v38" stroke="#c96442" stroke-width="6" stroke-linecap="round" />
+         <text class="model-label" x="1112" y="290">Model</text>
+         <text class="model-copy" x="1112" y="326">No memory between requests</text>
+         <text class="model-copy" x="1112" y="352">Only sees what the app sends</text>
+         <line id="wire1" class="wire" x1="660" y1="200" x2="900" y2="200" />
+         <text class="wire-label" x="681" y="176">1 · full history + new prompt</text>
+         <line id="wire2" class="wire" x1="900" y1="300" x2="660" y2="300" />
+         <text class="wire-label" x="697" y="278">2 · model reply</text>
+         <line id="wire3" class="wire" x1="535" y1="323" x2="535" y2="352" />
+         <line id="wire4" class="wire" x1="495" y1="352" x2="495" y2="323" />
+         <text class="wire-label" x="556" y="344">3 save</text>
+         <g id="badge1">
+            <circle class="badge" cx="666" cy="225" r="18" /><text class="badge-number" x="666" y="232">1</text>
+         </g>
+         <g id="badge2">
+            <circle class="badge" cx="894" cy="326" r="18" /><text class="badge-number" x="894" y="333">2</text>
+         </g>
+         <g id="badge3">
+            <circle class="badge" cx="572" cy="370" r="18" /><text class="badge-number" x="572" y="377">3</text>
+         </g>
+         <g id="badge4">
+            <circle class="badge" cx="452" cy="370" r="18" /><text class="badge-number" x="452" y="377">4</text>
+         </g>
+         <text class="tiny-label" x="100" y="486">4 · On refresh, the browser restores this saved history.</text>
+         <g id="packet" visibility="hidden">
+            <rect width="174" height="36" rx="18" /><text id="packetText" x="87" y="23"></text>
+         </g>
+      </svg>
+      <div id="memoryControls" aria-label="Animation controls">
+         <button id="btnPlay" type="button">Play</button>
+         <button id="btnNext" class="secondary" type="button">Next step</button>
+         <button id="btnReset" class="secondary" type="button">Reset</button>
+         <select id="speed" aria-label="Animation speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+         </select>
+         <span class="control-hint">Space = play/pause · → = next · R = reset</span>
+      </div>
+      <p class="memory-note">The app—not the model—owns the conversation. Each request includes prior messages, and the
+         browser stores them for the next visit.</p>
+   </section>
+
+   <section id="chatDemo" aria-label="Try the chat demo">
+      <div class="chat-heading">
+         <h2>Try the conversation</h2>
+         <p>Ask a follow-up question, refresh the page, or clear the saved chat to see the browser-side memory in
+            action.</p>
+      </div>
+      <label for="apiKey">OpenRouter API key <span class="tiny-label">(masked on screen)</span></label>
+      <input type="text" id="apiKey" placeholder="Enter your OpenRouter API key">
+      <div id="chatContainer">
+         <div id="messages"></div>
+      </div>
+      <div id="inputContainer">
+         <input type="text" id="messageInput" placeholder="Type your message..." value="Capital of England?"
+            aria-label="Message">
+         <button id="sendBtn" type="button">Send</button>
+         <button id="clearBtn" type="button">Clear Chat</button>
+      </div>
+   </section>
+
+   <script>
+      (() => {
+         const $ = id => document.getElementById(id);
+         const steps = [
+            { wire: 'wire1', badge: 'badge1', x1: 660, x2: 900, y: 200, packet: 'Full history', title: 'Step 1', text: 'The browser sends the new prompt together with the entire conversation history.' },
+            { wire: 'wire2', badge: 'badge2', x1: 900, x2: 660, y: 300, packet: 'Reply', title: 'Step 2', text: 'The model answers using only the messages included in this request; it retains no chat memory itself.' },
+            { wire: 'wire3', badge: 'badge3', x1: 535, x2: 535, y1: 323, y: 352, packet: 'Save history', title: 'Step 3', text: 'The app adds the reply to the thread and writes the updated history to localStorage.' },
+            { wire: 'wire4', badge: 'badge4', x1: 495, x2: 495, y1: 352, y: 323, packet: 'Restore', title: 'Step 4', text: 'After a refresh, the app reads the saved messages back. That browser-side copy creates the experience of memory.' }
+         ];
+         let current = 0, running = false, busy = false, token = 0, speed = 1;
+         function caption(i) {
+            $('capStep').textContent = i < 0 ? 'Ready' : i >= steps.length ? 'Complete' : steps[i].title;
+            $('capText').textContent = i < 0 ? 'Press Play to trace a message through the app, model, and browser storage.' : i >= steps.length ? 'The conversation is ready for the next turn—and survives a refresh.' : steps[i].text;
+         }
+         function update() {
+            $('btnPlay').textContent = running ? 'Pause' : current >= steps.length ? 'Replay' : 'Play';
+            $('btnNext').disabled = current >= steps.length;
+         }
+         function reset() {
+            token++; running = false; busy = false; current = 0;
+            $('packet').setAttribute('visibility', 'hidden');
+            steps.forEach((s, i) => { $(s.wire).classList.toggle('done', i < current); $(s.wire).classList.remove('active'); $(s.badge).querySelector('.badge').classList.remove('active'); });
+            caption(-1); update();
+         }
+         function runStep(i, t) {
+            const s = steps[i];
+            steps.forEach((item, j) => { $(item.wire).classList.toggle('done', j < i); $(item.wire).classList.toggle('active', j === i); $(item.badge).querySelector('.badge').classList.toggle('active', j === i); });
+            caption(i); $('packetText').textContent = s.packet;
+            const start = performance.now(), duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1150 / speed;
+            $('packet').setAttribute('visibility', 'visible');
+            return new Promise(resolve => {
+               function frame(now) {
+                  if (t !== token) return resolve();
+                  const p = duration === 0 ? 1 : Math.min(1, (now - start) / duration), eased = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+                  const x = s.x1 + (s.x2 - s.x1) * eased, y1 = s.y1 ?? s.y;
+                  $('packet').setAttribute('transform', `translate(${x - 87},${y1 + (s.y - y1) * eased - 18})`);
+                  if (p < 1) requestAnimationFrame(frame); else resolve();
+               }
+               $('packet').setAttribute('transform', `translate(${s.x1 - 87},${(s.y1 ?? s.y) - 18})`);
+               requestAnimationFrame(frame);
+            });
+         }
+         async function play() {
+            if (running) { token++; running = false; update(); return; }
+            if (current >= steps.length) reset();
+            const t = ++token; running = true; update();
+            while (running && t === token && current < steps.length) {
+               await runStep(current, t);
+               if (t !== token) return;
+               current++;
+               if (current < steps.length) await new Promise(r => setTimeout(r, 420 / speed));
+            }
+            if (t === token) { running = false; $('packet').setAttribute('visibility', 'hidden'); caption(steps.length); update(); }
+         }
+         async function next() {
+            if (busy || current >= steps.length) return;
+            token++; running = false; const t = ++token; busy = true; update();
+            await runStep(current, t);
+            if (t === token) current++;
+            busy = false;
+            if (t === token) { $('packet').setAttribute('visibility', 'hidden'); if (current >= steps.length) caption(steps.length); update(); }
+         }
+         $('btnPlay').addEventListener('click', play);
+         $('btnNext').addEventListener('click', next);
+         $('btnReset').addEventListener('click', reset);
+         $('speed').addEventListener('change', e => { speed = Number(e.target.value); });
+         document.addEventListener('keydown', e => {
+            if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) { e.preventDefault(); play(); }
+            else if (e.key === 'ArrowRight' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) next();
+            else if ((e.key === 'r' || e.key === 'R') && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) reset();
+         });
+         reset();
+      })();
+   </script>
+
+   <script>
+      // 🚀 ======================= DEMO CONSOLE LOGGING =======================
+      console.log('%c🚀 04 — Chat with Memory (stateful conversation)', 'font-size:15px;font-weight:bold;color:#0b7a5c');
+      console.log('📄 Page loaded. The API is stateless — so WE keep the whole conversation and resend it every time.');
+      console.log('🧠 That is what "memory" means here: the full message history is echoed back on each request.');
+      console.log('💾 We also persist it to localStorage, so a page refresh keeps the chat.');
+
+      // Pre-fill the API key from config.js (OpenRouter) so the demo works out of the box.
+      if (typeof OPENROUTER_API_KEY !== 'undefined' && OPENROUTER_API_KEY) {
+         document.getElementById('apiKey').value = OPENROUTER_API_KEY;
+         console.log('🔑 API key auto-filled from config.js (OpenRouter).');
+      } else {
+         console.warn('⚠️ No OPENROUTER_API_KEY found in config.js — type one into the field.');
+      }
+
+      const systemPrompt = `
+         You are a helpful assistant with access to the full conversation history. You always answer in a concise manner.
+
+         IMPORTANT: When the user asks follow-up questions using words like "it", "that", "there", etc., refer to the previous messages in our conversation to understand what they're referring to. Use your knowledge to answer questions about topics we've discussed.
+
+         If you genuinely don't know something, say 'I don't know', but always check the conversation context first before saying this.
+
+         Reply in plain text only. Do NOT include any HTML tags or markup. Ensure there is a new line after each sentence.
+      `;
+
+      let messages = [{ role: 'system', content: systemPrompt }];
+
+      // Load messages from localStorage
+      function loadMessages() {
+         const saved = localStorage.getItem('chatHistory');
+         console.log('💾 Looking for saved chat in localStorage...');
+         if (saved) {
+            messages = JSON.parse(saved);
+            console.log('📥 Restored', messages.length, 'messages from localStorage (memory survives refresh!).');
+         } else {
+            console.log('🆕 No saved chat yet — starting from the system prompt only.');
+         }
+         renderMessages();
+      }
+
+      // Save messages to localStorage
+      function saveMessages() {
+         localStorage.setItem('chatHistory', JSON.stringify(messages));
+         console.log('💾 Saved', messages.length, 'messages to localStorage key "chatHistory".');
+      }
+
+      // Strip any HTML tags from text so the chat shows plain text, not raw markup.
+      // The render layer uses textContent, so un-stripped tags appear literally
+      // (e.g. "<p>Hello</p>" instead of "Hello").
+      function stripHtml(html) {
+         if (!html) return '';
+         const doc = new DOMParser().parseFromString(html, 'text/html');
+         // Turn block-level elements and <br> into line breaks before flattening to text.
+         doc.body.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
+         doc.body.querySelectorAll('p,div,li,h1,h2,h3,h4,h5,h6,tr').forEach(el => el.append('\n'));
+         return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      // Render messages to the chat
+      function renderMessages() {
+         const messagesDiv = document.getElementById('messages');
+         messagesDiv.innerHTML = '';
+         console.log('🖼️ Rendering', messages.length - 1, 'visible messages (the system prompt is hidden from the UI).');
+         messages.slice(1).forEach(msg => { // Skip system message
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${msg.role}`;
+            msgDiv.textContent = msg.role === 'assistant' ? stripHtml(msg.content) : msg.content;
+            messagesDiv.appendChild(msgDiv);
+         });
+      }
+
+      // Send message to OpenRouter
+      async function sendMessage(userMessage) {
+         console.group('%c📨 sendMessage() called', 'color:#0b7a5c;font-weight:bold');
+         console.log('⏳ Awaiting window.openRouterReady (loads key + model from OPENROUTER.txt).');
+         await window.openRouterReady; // key + model come from OPENROUTER.txt
+         console.log('✅ openRouterReady resolved.');
+         // Use the key typed into the field, falling back to the key from OPENROUTER.txt.
+         const apiKey = document.getElementById('apiKey').value || OPENROUTER_API_KEY;
+
+         if (!apiKey) {
+            console.warn('🛑 No API key — aborting.');
+            console.groupEnd();
+            alert('Please enter your API key');
+            return;
+         }
+
+         // Add user message
+         console.log('➕ Pushing the user message onto the history:', JSON.stringify(userMessage));
+         messages.push({ role: 'user', content: userMessage });
+         saveMessages();
+         renderMessages();
+
+         // Clear input
+         document.getElementById('messageInput').value = '';
+
+         // Add loading message
+         const loadingDiv = document.createElement('div');
+         loadingDiv.className = 'message assistant loading';
+         loadingDiv.textContent = 'Thinking...';
+         document.getElementById('messages').appendChild(loadingDiv);
+         console.log('⌛ Added a temporary "Thinking..." bubble (it is removed when the reply arrives).');
+
+         // Scroll to bottom
+         document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
+
+         // Log conversation history being sent
+         console.log('Sending to OpenRouter - Total messages in conversation:', messages.length);
+         console.log('Full conversation history:', messages);
+         console.log('🔑 This is the KEY idea: we resend the ENTIRE history every call. More history = more tokens = more cost.');
+
+         try {
+            console.log('🌐 POSTing to', OPENROUTER_API_URL, '| model:', OPENROUTER_MODEL);
+            const t0 = performance.now();
+            const response = await fetch(OPENROUTER_API_URL, {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`,
+                  ...OPENROUTER_HEADERS
+               },
+               body: JSON.stringify({
+                  model: OPENROUTER_MODEL,
+                  messages: messages,
+                  max_tokens: 1024
+               })
+            });
+            console.log('📡 Response in', Math.round(performance.now() - t0) + 'ms | status', response.status, response.ok ? '✅' : '⚠️');
+
+            const data = await response.json();
+            console.log('Raw API response:', data);
+
+            if (data.error) {
+               console.error('❌ OpenRouter error:', data.error.message);
+               loadingDiv.textContent = `Error: ${data.error.message}`;
+               loadingDiv.style.color = 'red';
+            } else {
+               // Remove loading message
+               document.getElementById('messages').removeChild(loadingDiv);
+               console.log('🧹 Removed the "Thinking..." bubble.');
+
+               // Add actual response
+               const rawReply = data.choices[0].message.content;
+               const assistantMessage = stripHtml(rawReply); // strip HTML tags from the model's reply
+               if (rawReply !== assistantMessage) console.log('🧽 Stripped HTML tags from the assistant reply.');
+               console.log('💬 Assistant replied:', assistantMessage);
+               messages.push({ role: 'assistant', content: assistantMessage });
+               saveMessages();
+               renderMessages();
+
+               console.log('Assistant response added. Total messages now:', messages.length);
+               if (data.usage) console.log('🧮 Token usage:', data.usage, '(grows as the history grows!)');
+
+               // Scroll to bottom
+               document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
+            }
+         } catch (error) {
+            console.error('💥 Network/parse error:', error);
+            loadingDiv.textContent = `Error: ${error.message}`;
+            loadingDiv.style.color = 'red';
+         }
+         console.groupEnd();
+      }
+
+      // Event listener for send button
+      document.getElementById('sendBtn').addEventListener('click', () => {
+         const input = document.getElementById('messageInput');
+         const message = input.value.trim();
+         if (message) {
+            console.log('👆 Send button clicked with:', JSON.stringify(message));
+            sendMessage(message);
+         } else {
+            console.warn('🙈 Send clicked but the input was empty — ignoring.');
+         }
+      });
+
+      // Allow enter key to send
+      document.getElementById('messageInput').addEventListener('keypress', (e) => {
+         if (e.key === 'Enter') {
+            console.log('⌨️ Enter key pressed — sending.');
+            sendMessage(e.target.value.trim());
+         }
+      });
+
+      // Clear chat functionality
+      document.getElementById('clearBtn').addEventListener('click', () => {
+         console.log('🗑️ Clear Chat clicked.');
+         if (confirm('Are you sure you want to clear the chat history?')) {
+            messages = [{ role: 'system', content: systemPrompt }];
+            saveMessages();
+            renderMessages();
+            console.log('✅ Chat history wiped — memory reset to just the system prompt.');
+         } else {
+            console.log('↩️ Clear cancelled — history kept.');
+         }
+      });
+
+      // Load messages on page load
+      window.addEventListener('load', loadMessages);
+      console.log('🪝 Registered loadMessages() to run on window "load".');
+
+      // Debug: Log messages array before each API call
+      console.log('Chat initialized. Messages array:', messages);
+   </script>
+</body>
+
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Calling Round Trip</title>
+   <link rel="stylesheet" href="anthropic-ui.css">
+</head>
+
+<body class="page-tool-animation">
+
+  <div id="caption">
+    <span id="capStep">Ready</span>
+    <p id="capLine"><strong id="capTitle">Press Play</strong><span id="capDesc">Walk one tool call round trip between
+        the app and the model.</span></p>
+  </div>
+
+  <svg id="stage" viewBox="68 52 1379 766" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <marker id="mR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" markerUnits="strokeWidth"
+        orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8c877c" />
+      </marker>
+      <marker id="mL" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="4" markerHeight="4" markerUnits="strokeWidth"
+        orient="auto">
+        <path d="M10,0 L0,5 L10,10 z" fill="#8c877c" />
+      </marker>
+    </defs>
+
+    <!-- Boxes -->
+    <rect id="appBox" class="box" x="80" y="68" width="257" height="737" rx="26" />
+    <text class="boxlabel" x="208" y="165">App</text>
+
+    <rect id="modelBox" class="box" x="1178" y="68" width="257" height="737" rx="26" />
+    <text class="boxlabel" x="1307" y="165">Model</text>
+    <g id="sparkle"></g>
+
+    <rect id="toolBox" class="box" x="629" y="340" width="257" height="244" rx="22" />
+    <g class="tools">
+      <g transform="rotate(-25 706 330)">
+        <rect x="700" y="312" width="13" height="44" rx="5" />
+        <circle cx="706" cy="312" r="14" />
+      </g>
+      <rect x="728" y="284" width="52" height="20" rx="4" />
+      <rect x="748" y="300" width="14" height="68" rx="3" />
+      <circle cx="808" cy="335" r="14" fill="none" stroke="#c15f3c" stroke-width="9" />
+    </g>
+    <circle class="toolplate" cx="760" cy="404" r="30" />
+    <circle class="toolring" cx="760" cy="404" r="22" />
+    <circle class="toolhub" cx="760" cy="404" r="8" />
+    <text class="toolLabel" x="760" y="481">Tool</text>
+    <text class="toolLabel" x="760" y="544">function</text>
+
+    <!-- Arrows (glow underlay + arrow) -->
+    <line id="g1" class="glow" x1="345" y1="143" x2="1085" y2="143" />
+    <line id="g2" class="glow" x1="1157" y1="265" x2="415" y2="265" />
+    <line id="g3a" class="glow" x1="345" y1="427" x2="590" y2="427" />
+    <line id="g3b" class="glow" x1="612" y1="541" x2="345" y2="541" />
+    <line id="g3c" class="glow" x1="345" y1="673" x2="1085" y2="673" />
+    <line id="g4" class="glow" x1="1157" y1="786" x2="415" y2="786" />
+
+    <line id="a1" class="arrow" x1="345" y1="143" x2="1085" y2="143" marker-end="url(#mR)" />
+    <line id="a2" class="arrow" x1="1157" y1="265" x2="415" y2="265" marker-end="url(#mL)" />
+    <line id="a3a" class="arrow" x1="345" y1="427" x2="590" y2="427" marker-end="url(#mR)" />
+    <line id="a3b" class="arrow" x1="612" y1="541" x2="345" y2="541" marker-end="url(#mL)" />
+    <line id="a3c" class="arrow" x1="345" y1="673" x2="1085" y2="673" marker-end="url(#mR)" />
+    <line id="a4" class="arrow" x1="1157" y1="786" x2="415" y2="786" marker-end="url(#mL)" />
+
+    <!-- Step badges and labels -->
+    <g id="b1">
+      <circle class="badge" cx="387" cy="90" r="26" />
+      <text class="badgeNum" x="387" y="100">1</text>
+      <text class="bl" x="424" y="98">Prompt + set of tools</text>
+    </g>
+    <g id="b2">
+      <circle class="badge" cx="1114" cy="213" r="26" />
+      <text class="badgeNum" x="1114" y="223">2</text>
+      <text class="bl" x="1073" y="205" text-anchor="end">ToolUseBlock</text>
+      <text class="bl" x="1073" y="235" text-anchor="end">“I want to use a tool”</text>
+    </g>
+    <g id="b3a">
+      <circle class="badge" cx="387" cy="382" r="26" />
+      <text class="badgeNum small" x="387" y="390">3a</text>
+      <text class="bl" x="424" y="372">Execute some</text>
+      <text class="bl" x="424" y="402">tool functionality</text>
+    </g>
+    <g id="b3b">
+      <circle class="badge" cx="588" cy="498" r="26" />
+      <text class="badgeNum small" x="588" y="506">3b</text>
+      <text class="bl" x="547" y="506" text-anchor="end">Get a tool result</text>
+    </g>
+    <g id="b3c">
+      <circle class="badge" cx="387" cy="620" r="26" />
+      <text class="badgeNum small" x="387" y="628">3c</text>
+      <text class="bl" x="425" y="608">
+        <tspan class="bold">Tool Result</tspan> containing the data
+      </text>
+      <text class="bl" x="425" y="638">we got from the tool</text>
+    </g>
+    <g id="b4">
+      <circle class="badge" cx="1114" cy="733" r="26" />
+      <text class="badgeNum" x="1114" y="743">4</text>
+      <text class="bl" x="1073" y="741" text-anchor="end">Model formulates response using tool data</text>
+    </g>
+
+    <!-- Travelling packet -->
+    <g id="pkt" visibility="hidden">
+      <rect width="190" height="40" rx="20" />
+      <text id="pktText" x="95" y="26"></text>
+    </g>
+  </svg>
+
+  <div id="controls">
+    <button id="btnPlay">Play</button>
+    <button id="btnNext" class="ghost">Next step</button>
+    <button id="btnReset" class="ghost">Reset</button>
+    <select id="speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+    <span class="hint">Space = play/pause · → = next · R = reset</span>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const PW = 190, PH = 40, PAUSE = 700, DUR = 1400;
+    const BOX = { app: 'appBox', model: 'modelBox', tool: 'toolBox' };
+
+    const STEPS = [
+      {
+        n: '1', arrow: 'a1', glow: 'g1', badge: 'b1', from: 'app', to: 'model', x1: 345, x2: 1085, y: 143, pkt: 'Prompt + tools',
+        title: 'Prompt + set of tools', desc: 'The app sends the user’s prompt along with the list of tools the model is allowed to call.'
+      },
+      {
+        n: '2', arrow: 'a2', glow: 'g2', badge: 'b2', from: 'model', to: 'app', x1: 1157, x2: 415, y: 265, pkt: 'ToolUseBlock',
+        title: 'ToolUseBlock', desc: 'The model doesn’t answer yet. It replies “I want to use a tool”, naming the tool and its arguments.'
+      },
+      {
+        n: '3a', arrow: 'a3a', glow: 'g3a', badge: 'b3a', from: 'app', to: 'tool', x1: 345, x2: 590, y: 427, pkt: 'Run tool',
+        title: 'Execute some tool functionality', desc: 'The app runs the real function on its own side. The model never executes code itself.'
+      },
+      {
+        n: '3b', arrow: 'a3b', glow: 'g3b', badge: 'b3b', from: 'tool', to: 'app', x1: 612, x2: 345, y: 541, pkt: 'Tool result',
+        title: 'Get a tool result', desc: 'The tool function returns its data to the app.'
+      },
+      {
+        n: '3c', arrow: 'a3c', glow: 'g3c', badge: 'b3c', from: 'app', to: 'model', x1: 345, x2: 1085, y: 673, pkt: 'Tool Result',
+        title: 'Tool Result', desc: 'The app sends a Tool Result containing that data back to the model, in a second request.'
+      },
+      {
+        n: '4', arrow: 'a4', glow: 'g4', badge: 'b4', from: 'model', to: 'app', x1: 1157, x2: 415, y: 786, pkt: 'Final answer',
+        title: 'Model formulates response', desc: 'The model writes its answer using the tool data. The round trip ends.'
+      },
+    ];
+
+    let token = 0, running = false, busy = false, cur = 0, speed = 1;
+
+    function place(x, y) {
+      $('pkt').setAttribute('transform', `translate(${x - PW / 2},${y - PH / 2})`);
+    }
+
+    function pulse(id) {
+      const el = $(id);
+      el.classList.remove('pulse');
+      void el.getBoundingClientRect();
+      el.classList.add('pulse');
+      setTimeout(() => el.classList.remove('pulse'), 750);
+    }
+
+    function setStepUI(active) {
+      STEPS.forEach((s, j) => {
+        $(s.arrow).classList.toggle('done', j < cur);
+        $(s.glow).classList.toggle('on', j === active);
+        $(s.badge).classList.toggle('on', j === active);
+      });
+    }
+
+    function showCaption(i) {
+      if (i < 0) {
+        $('capStep').textContent = 'Ready';
+        $('capTitle').textContent = 'Press Play';
+        $('capDesc').textContent = 'Walk one tool call round trip between the app and the model.';
+      } else if (i >= STEPS.length) {
+        $('capStep').textContent = 'Done';
+        $('capTitle').textContent = 'Round trip complete';
+        $('capDesc').textContent = 'The model has its answer.';
+      } else {
+        const s = STEPS[i];
+        $('capStep').textContent = 'Step ' + s.n;
+        $('capTitle').textContent = s.title;
+        $('capDesc').textContent = s.desc;
+      }
+    }
+
+    function updateButtons() {
+      $('btnPlay').textContent = running ? 'Pause' : (cur >= STEPS.length ? 'Replay' : 'Play');
+      $('btnNext').disabled = cur >= STEPS.length;
+    }
+
+    function wait(ms) {
+      return new Promise(r => setTimeout(r, ms));
+    }
+
+    function runStep(i, t) {
+      const s = STEPS[i];
+      setStepUI(i);
+      showCaption(i);
+      $('pktText').textContent = s.pkt;
+      pulse(BOX[s.from]);
+      const start = performance.now();
+      const dur = DUR / speed;
+      return new Promise(resolve => {
+        function frame(now) {
+          if (t !== token) return resolve();
+          const p = Math.min(1, (now - start) / dur);
+          const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // ease in-out
+          place(s.x1 + (s.x2 - s.x1) * e, s.y);
+          if (p < 1) requestAnimationFrame(frame);
+          else resolve();
+        }
+        $('pkt').setAttribute('visibility', 'visible');
+        place(s.x1, s.y);
+        requestAnimationFrame(frame);
+      }).then(() => {
+        if (t !== token) return;
+        pulse(BOX[s.to]);
+        // The tool only starts working once the call actually lands in it,
+        // and stops the moment the result pill lands back on the app.
+        if (s.to === 'tool') $('toolBox').classList.add('working');
+        else if (s.from === 'tool' && s.to === 'app') $('toolBox').classList.remove('working');
+        // Same idea for the model: it thinks while a pill has just landed on it,
+        // and stops once its reply pill reaches the app.
+        if (s.to === 'model') $('sparkle').classList.add('thinking');
+        else if (s.from === 'model' && s.to === 'app') $('sparkle').classList.remove('thinking');
+      });
+    }
+
+    async function play() {
+      if (running) return pause();
+      if (cur >= STEPS.length) reset();
+      token++;
+      const t = token;
+      running = true;
+      updateButtons();
+      while (running && t === token && cur < STEPS.length) {
+        await runStep(cur, t);
+        if (t !== token) return;
+        cur++;
+        if (cur < STEPS.length) await wait(PAUSE / speed);
+        if (t !== token) return;
+      }
+      if (t === token) {
+        running = false;
+        setStepUI(-1);
+        if (cur >= STEPS.length) showCaption(STEPS.length);
+        updateButtons();
+      }
+    }
+
+    function pause() {
+      token++;
+      running = false;
+      updateButtons();
+    }
+
+    async function nextStep() {
+      if (busy || cur >= STEPS.length) return;
+      if (running) pause();
+      token++;
+      const t = token;
+      busy = true;
+      await runStep(cur, t);
+      if (t === token) cur++;
+      busy = false;
+      if (t === token) {
+        setStepUI(-1);
+        if (cur >= STEPS.length) showCaption(STEPS.length);
+      }
+      updateButtons();
+    }
+
+    function reset() {
+      token++;
+      running = false;
+      busy = false;
+      cur = 0;
+      $('pkt').setAttribute('visibility', 'hidden');
+      $('toolBox').classList.remove('working');
+      $('sparkle').classList.remove('thinking');
+      setStepUI(-1);
+      showCaption(-1);
+      updateButtons();
+    }
+
+    function buildSparkle() {
+      let s = '';
+      for (let k = 0; k < 12; k++) {
+        const a = (k * Math.PI * 2) / 12;
+        const len = k % 2 ? 72 : 100;
+        const x1 = 1307 + Math.cos(a) * 18, y1 = 285 + Math.sin(a) * 18;
+        const x2 = 1307 + Math.cos(a) * len, y2 = 285 + Math.sin(a) * len;
+        s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#d97757" stroke-width="11" stroke-linecap="round" opacity="0.85"/>`;
+      }
+      $('sparkle').innerHTML = s;
+    }
+
+    $('btnPlay').addEventListener('click', play);
+    $('btnNext').addEventListener('click', nextStep);
+    $('btnReset').addEventListener('click', reset);
+    $('speed').addEventListener('change', e => { speed = Number(e.target.value); });
+    document.addEventListener('keydown', e => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.target instanceof HTMLElement && e.target.matches('button, select, input, textarea, [contenteditable="true"]')) return;
+      if (e.code === 'Space') { e.preventDefault(); play(); }
+      else if (e.key === 'ArrowRight') nextStep();
+      else if (e.key === 'r' || e.key === 'R') reset();
+    });
+
+    buildSparkle();
+    reset();
+  </script>
+</body>
+
+</html>

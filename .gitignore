@@ -1,4 +1,5 @@
 .env
+**/.env*
 **/OPENROUTER.txt
 __pycache__/
 *.pyc
